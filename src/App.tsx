@@ -62,7 +62,12 @@ function SignInForm() {
         onSubmit={(e) => {
           e.preventDefault();
           const formData = new FormData(e.target as HTMLFormElement);
+
+          // set email to lowercase
+          const email = formData.get("email") as string;
+          formData.set("email", email.toLowerCase());
           formData.set("flow", flow);
+
           void signIn("password", formData).catch((error) => {
             setError(error.message);
           });
