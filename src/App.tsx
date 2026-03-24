@@ -99,6 +99,7 @@ const translations = {
   daysMustBeBetweenLabel: "Количество дней в неделю должно быть от 1 до 7",
   noSkillsYetLabel: "Навыков пока нет",
   userLabel: "Пользователь",
+  activeWeek: "Активная неделя",
 };
 
 function getUserInitials(user: any) {
@@ -136,7 +137,7 @@ export default function App() {
           </div>
         </header>
         <main className="flex-1">
-          <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="max-w-full lg:max-w-7xl mx-auto px-4 sm:px-6 py-8">
             <Authenticated>
               <Content />
             </Authenticated>
@@ -174,10 +175,10 @@ function SignInForm() {
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [error, setError] = useState<string | null>(null);
   return (
-    <div className="flex flex-col gap-8 w-96 mx-auto">
+    <div className="flex flex-col gap-6 w-80 sm:w-96 mx-auto max-w-sm">
       <p className="text-center text-lg">{translations.welcomeForm}</p>
       <form
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-3 sm:gap-4"
         onSubmit={(e) => {
           e.preventDefault();
           const formData = new FormData(e.target as HTMLFormElement);
@@ -193,21 +194,21 @@ function SignInForm() {
         }}
       >
         <input
-          className="bg-light dark:bg-dark text-dark dark:text-light rounded-md p-3 border-2 border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-light dark:bg-dark text-dark dark:text-light rounded-md p-2 sm:p-3 border-2 border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
           type="email"
           name="email"
           placeholder={translations.email}
           required
         />
         <input
-          className="bg-light dark:bg-dark text-dark dark:text-light rounded-md p-3 border-2 border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-light dark:bg-dark text-dark dark:text-light rounded-md p-2 sm:p-3 border-2 border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
           type="password"
           name="password"
           placeholder={translations.password}
           required
         />
         <button
-          className="bg-dark dark:bg-light text-light dark:text-dark rounded-md py-3 font-semibold hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+          className="bg-dark dark:bg-light text-light dark:text-dark rounded-md py-2 sm:py-3 font-semibold hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
           type="submit"
         >
           {flow === "signIn"
@@ -353,7 +354,7 @@ function Content() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-full lg:max-w-6xl mx-auto">
       {error && (
         <div className="mb-4 bg-red-500/20 border-2 border-red-500/50 rounded-md p-3">
           <p className="text-dark dark:text-light font-mono text-sm">
@@ -368,8 +369,8 @@ function Content() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 max-w-7xl mx-auto">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           <WeekTracker
             onStartWeek={handleStartWeek}
             onUpdateDay={handleUpdateDay}
@@ -386,8 +387,8 @@ function Content() {
             selectedWeek={selectedWeek}
           />
         </div>
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white rounded-lg p-3 border border-gray-100">
+        <div className="lg:col-span-1 space-y-3 sm:space-y-4">
+          <div className="bg-white rounded-lg p-3 border border-gray-100 min-h-[200px]">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-sm font-semibold text-gray-900">
                 {translations.skills}
@@ -479,7 +480,9 @@ function WeekTracker({
           </p>
           {actualSelectedWeekIndex > 0 && (
             <p className="text-xs text-gray-500 mt-1">
-              Viewing past week ({actualSelectedWeekIndex} weeks ago)
+              {/* Перевести на русский */}
+              Просмотр истории: ({actualSelectedWeekIndex} недель назад)
+              {/* Viewing past week ({actualSelectedWeekIndex} weeks ago) */}
             </p>
           )}
         </div>
@@ -505,7 +508,7 @@ function WeekTracker({
       </div>
 
       {/* Week Navigation */}
-      <div className="flex justify-center items-center mb-6">
+      <div className="flex justify-center items-center mb-4 sm:mb-6">
         <button
           onClick={handlePreviousWeek}
           disabled={!canGoBack || loading}
@@ -527,11 +530,11 @@ function WeekTracker({
           </svg>
         </button>
 
-        <div className="mx-4 text-center">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+        <div className="mx-2 sm:mx-4 text-center">
+          <span className="inline-flex items-center px-2 py-1 sm:px-2 sm:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
             {selectedWeek.status === "active"
-              ? "In Progress"
+              ? translations.inProgress
               : selectedWeek.status}
           </span>
         </div>
@@ -561,7 +564,7 @@ function WeekTracker({
       {selectedWeek ? (
         <div className="space-y-6">
           {/* Day Dots */}
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col gap-4 justify-center items-center mx-auto sm:flex-row sm:gap-2 md:min-w-[280px] w-full max-w-[280px]">
             {selectedWeek.days.map((day: any, index: number) => (
               <DayDot
                 key={index}
@@ -650,7 +653,7 @@ function DayDot({
       onClick={() => onDayClick?.(index)}
     >
       <div
-        className={`w-10 h-10 rounded-full ${colorClass} hover:scale-110 transition-all duration-200 transform hover:-translate-y-1 ${
+        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full ${colorClass} hover:scale-110 transition-all duration-200 transform hover:-translate-y-1 ${
           isSelected ? "ring-2 ring-blue-500 dark:ring-blue-400" : ""
         }`}
         title={`${day.date} - ${day.status}`}
@@ -714,9 +717,9 @@ function CurrentTasks({
     <div className="bg-white rounded-lg p-4 border border-gray-100">
       <div className="flex justify-between items-center mb-3">
         <h3 className="text-base font-semibold text-gray-900">
-          {dayName}'s {translations.tasks}
+          Задачи на день:
         </h3>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-gray-500 whitespace-nowrap">
           {dayTasks.length} {translations.tasks.toLowerCase()}
           {dayTasks.length !== 1 ? "" : ""}
         </span>
@@ -803,12 +806,12 @@ function AddSkillForm({
   };
 
   return (
-    <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+    <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
           <input
             type="text"
-            placeholder="Skill name"
+            placeholder="Название навыка"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="bg-white dark:bg-gray-800 p-2 rounded-md border border-gray-300 dark:border-gray-600"
@@ -818,7 +821,7 @@ function AddSkillForm({
             type="number"
             min="1"
             max="7"
-            placeholder="Days per week"
+            placeholder="Количество дн/нед"
             value={days}
             onChange={(e) => setDays(parseInt(e.target.value))}
             className="bg-white dark:bg-gray-800 p-2 rounded-md border border-gray-300 dark:border-gray-600"
@@ -829,12 +832,12 @@ function AddSkillForm({
           <button
             type="submit"
             disabled={loading || !name.trim()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? translations.adding : translations.add}
           </button>
           <button
-            className="bg-white text-gray-600 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-100 transition-colors font-medium"
+            className="bg-white text-gray-600 border border-gray-300 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors font-medium"
             onClick={() => {
               onClose();
               return;
