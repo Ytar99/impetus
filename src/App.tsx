@@ -414,6 +414,90 @@ function Content() {
   );
 }
 
+// Helper function to create an empty week object
+function createEmptyWeek() {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const monday = new Date(today.setDate(diff));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const startDate = monday.toISOString().split("T")[0];
+  const endDate = sunday.toISOString().split("T")[0];
+
+  return {
+    _id: "empty",
+    startDate,
+    endDate,
+    status: "empty", // Используем существующий статус
+    days: Array.from({ length: 7 }, (_, index) => ({
+      date: new Date(monday.getTime() + index * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      status: index === day - 1 ? "today" : "empty",
+      taskCount: 0,
+      completedCount: 0,
+    })),
+  };
+}
+
+// Function to get normalized status text for display
+function getWeekStatusText(status: string): string {
+  switch (status) {
+    case "active":
+      return translations.inProgress;
+    case "completed":
+      return translations.completed;
+    case "empty":
+      return translations.empty;
+    default:
+      return status; // Fallback for unknown statuses
+  }
+}
+
+// Function to render empty week interface
+function renderEmptyWeek({
+  onStartWeek,
+  loading,
+}: {
+  onStartWeek: () => Promise<void>;
+  loading: boolean;
+}) {
+  return (
+    <div className="text-center py-8">
+      <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 rounded-full mx-auto mb-4 flex items-center justify-center">
+        <svg
+          className="w-8 h-8 text-blue-600 dark:text-blue-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      </div>
+      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+        {translations.noActiveWeekTitle}
+      </h4>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">
+        {translations.startTrackingProgress}
+      </p>
+      <button
+        onClick={() => void onStartWeek()}
+        disabled={loading}
+        className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg font-medium"
+      >
+        {loading ? translations.starting : translations.startNewWeekButton}
+      </button>
+    </div>
+  );
+}
+
 function WeekTracker({
   onStartWeek,
   onUpdateDay,
@@ -443,7 +527,8 @@ function WeekTracker({
   }
 
   const actualSelectedWeekIndex = selectedWeekIndex ?? 0;
-  const selectedWeek = weeks[actualSelectedWeekIndex] || currentWeek;
+  const selectedWeek =
+    weeks[actualSelectedWeekIndex] || currentWeek || createEmptyWeek();
   const canGoBack = actualSelectedWeekIndex < weeks.length - 1;
   const canGoForward = actualSelectedWeekIndex > 0;
 
@@ -472,14 +557,22 @@ function WeekTracker({
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
             {translations.weekProgress}
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {selectedWeek.startDate} - {selectedWeek.endDate}
-          </p>
-          {actualSelectedWeekIndex > 0 && (
-            <p className="text-xs text-gray-500 mt-1">
-              {/* Перевести на русский */}
-              Просмотр истории: ({actualSelectedWeekIndex} недель назад)
-              {/* Viewing past week ({actualSelectedWeekIndex} weeks ago) */}
+          {selectedWeek ? (
+            <>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {selectedWeek.startDate} - {selectedWeek.endDate}
+              </p>
+              {actualSelectedWeekIndex > 0 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {/* Перевести на русский */}
+                  Просмотр истории: ({actualSelectedWeekIndex} недель назад)
+                  {/* Viewing past week ({actualSelectedWeekIndex} weeks ago) */}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 italic">
+              {translations.noActiveWeekLabel}
             </p>
           )}
         </div>
@@ -530,9 +623,7 @@ function WeekTracker({
         <div className="mx-2 sm:mx-4 text-center">
           <span className="inline-flex items-center px-2 py-1 sm:px-2 sm:py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
             <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-            {selectedWeek.status === "active"
-              ? translations.inProgress
-              : selectedWeek.status}
+            {getWeekStatusText(selectedWeek.status)}
           </span>
         </div>
 
@@ -558,7 +649,9 @@ function WeekTracker({
         </button>
       </div>
 
-      {selectedWeek ? (
+      {!currentWeek && weeks.length === 0 ? (
+        renderEmptyWeek({ onStartWeek, loading })
+      ) : (
         <div className="space-y-6">
           {/* Day Dots */}
           <div className="flex flex-col gap-4 justify-center items-center mx-auto sm:flex-row sm:gap-2 md:min-w-[280px] w-full max-w-[280px]">
@@ -572,37 +665,6 @@ function WeekTracker({
               />
             ))}
           </div>
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900 dark:to-purple-900 rounded-full mx-auto mb-4 flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-blue-600 dark:text-blue-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            No Active Week
-          </h4>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Start a new week to begin tracking your progress
-          </p>
-          <button
-            onClick={() => void onStartWeek()}
-            disabled={loading}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg font-medium"
-          >
-            {loading ? translations.starting : translations.startNewWeekButton}
-          </button>
         </div>
       )}
     </div>
