@@ -275,8 +275,6 @@ function Content() {
     );
   }
 
-  const selectedWeek = weeks[selectedWeekIndex] || currentWeek;
-
   const handleStartWeek = async () => {
     setLoading(true);
     setError(null);
@@ -384,7 +382,6 @@ function Content() {
             onToggleSkill={toggleSkillMutation}
             loading={loading}
             selectedDayIndex={selectedDayIndex}
-            selectedWeek={selectedWeek}
           />
         </div>
         <div className="lg:col-span-1 space-y-3 sm:space-y-4">
@@ -684,7 +681,6 @@ function CurrentTasks({
   onToggleSkill,
   loading,
   selectedDayIndex,
-  selectedWeek,
 }: {
   onToggleSkill: any;
   loading: boolean;
@@ -703,15 +699,6 @@ function CurrentTasks({
       </div>
     );
   }
-
-  // Get day name for header
-  const selectedWeekData = selectedWeek || { days: [] };
-  const selectedDay = selectedWeekData.days[selectedDayIndex ?? 0];
-  const dayName = selectedDay
-    ? new Date(selectedDay.date).toLocaleDateString("ru-RU", {
-        weekday: "long",
-      })
-    : translations.selectedDay;
 
   return (
     <div className="bg-white rounded-lg p-4 border border-gray-100">
