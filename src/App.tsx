@@ -9,7 +9,7 @@ import {
 } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, X, LogOut } from "lucide-react";
 
 // Russian translations
@@ -252,7 +252,9 @@ function SignInForm() {
 
 function Content() {
   const user = useQuery(api.myFunctions.getCurrentUser);
-  const { weeks, currentWeek } = useQuery(api.myFunctions.getWeeks) ?? {};
+  const { weeks, currentWeek, weekExpired } =
+    useQuery(api.myFunctions.getWeeks) ?? {};
+
   const [showAddSkill, setShowAddSkill] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0); // Track selected day
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
@@ -263,9 +265,30 @@ function Content() {
   );
   const updateDayMutation = useMutation(api.myFunctions.updateDay);
   const toggleSkillMutation = useMutation(api.myFunctions.toggleSkill);
+  const completeExpiredWeekMutation = useMutation(
+    api.myFunctions.completeExpiredWeek,
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle expired week - complete it automatically
+  useEffect(() => {
+    if (weekExpired) {
+      setLoading(true);
+      completeExpiredWeekMutation()
+        .then(() => {
+          // Week completed successfully, data will refresh automatically
+        })
+        .catch((err) => {
+          console.error("Error completing expired week:", err);
+          setError("Не удалось завершить прошедшую неделю");
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [weekExpired]);
 
   if (user === undefined || weeks === undefined || currentWeek === undefined) {
     return (
@@ -351,6 +374,9 @@ function Content() {
     setSelectedDayIndex(dayIndex);
   };
 
+  // Determine if we're in read-only mode (viewing past weeks or no active week)
+  const isReadOnly = selectedWeekIndex > 0 || !currentWeek;
+
   return (
     <div className="max-w-full lg:max-w-6xl mx-auto">
       {error && (
@@ -382,6 +408,7 @@ function Content() {
             onToggleSkill={toggleSkillMutation}
             loading={loading}
             selectedDayIndex={selectedDayIndex}
+            isReadOnly={isReadOnly}
           />
         </div>
         <div className="lg:col-span-1 space-y-3 sm:space-y-4">
@@ -390,14 +417,16 @@ function Content() {
               <h3 className="text-sm font-semibold text-gray-900">
                 {translations.skills}
               </h3>
-              <button
-                onClick={() => setShowAddSkill(!showAddSkill)}
-                className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors"
-                aria-label={translations.addSkillLabel}
-                title={translations.addSkillLabel}
-              >
-                <Plus size={16} />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={() => setShowAddSkill(!showAddSkill)}
+                  className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors"
+                  aria-label={translations.addSkillLabel}
+                  title={translations.addSkillLabel}
+                >
+                  <Plus size={16} />
+                </button>
+              )}
             </div>
             {showAddSkill && (
               <AddSkillForm
@@ -406,7 +435,7 @@ function Content() {
                 loading={loading}
               />
             )}
-            <SkillList />
+            <SkillList isReadOnly={isReadOnly} />
           </div>
         </div>
       </div>
@@ -451,13 +480,15 @@ function getWeekStatusText(status: string): string {
       return translations.completed;
     case "empty":
       return translations.empty;
+    case "start":
+      return translations.startNewWeek;
     default:
       return status; // Fallback for unknown statuses
   }
 }
 
-// Function to render empty week interface
-function renderEmptyWeek({
+// Function to render start week interface
+function renderStartWeekInterface({
   onStartWeek,
   loading,
 }: {
@@ -554,14 +585,18 @@ function WeekTracker({
     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-            {translations.weekProgress}
-          </h3>
           {selectedWeek ? (
             <>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {selectedWeek.startDate} - {selectedWeek.endDate}
-              </p>
+              {(selectedWeek.status as string) !== "start" && (
+                <>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                    {translations.weekProgress}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedWeek.startDate} - {selectedWeek.endDate}
+                  </p>
+                </>
+              )}
               {actualSelectedWeekIndex > 0 && (
                 <p className="text-xs text-gray-500 mt-1">
                   {/* Перевести на русский */}
@@ -649,8 +684,8 @@ function WeekTracker({
         </button>
       </div>
 
-      {!currentWeek && weeks.length === 0 ? (
-        renderEmptyWeek({ onStartWeek, loading })
+      {(selectedWeek.status as string) === "start" ? (
+        renderStartWeekInterface({ onStartWeek, loading })
       ) : (
         <div className="space-y-6">
           {/* Day Dots */}
@@ -743,11 +778,13 @@ function CurrentTasks({
   onToggleSkill,
   loading,
   selectedDayIndex,
+  isReadOnly,
 }: {
   onToggleSkill: any;
   loading: boolean;
   selectedDayIndex?: number;
   selectedWeek?: any;
+  isReadOnly?: boolean;
 }) {
   const { dayTasks } =
     useQuery(api.myFunctions.getDayTasks, {
@@ -792,7 +829,7 @@ function CurrentTasks({
                     completed: !(task?.completed || false),
                   });
                 }}
-                disabled={loading}
+                disabled={loading || isReadOnly}
               />
               <span
                 className={`text-sm ${
@@ -900,7 +937,7 @@ function AddSkillForm({
   );
 }
 
-function SkillList() {
+function SkillList({ isReadOnly }: { isReadOnly?: boolean }) {
   const { skills } = useQuery(api.myFunctions.getSkills) ?? {};
   const updateSkillMutation = useMutation(api.myFunctions.updateSkill);
   const removeSkillMutation = useMutation(api.myFunctions.removeSkill);
@@ -998,28 +1035,30 @@ function SkillList() {
                   {translations.daysPerWeekShort}
                 </span>
               </div>
-              <div className="flex gap-1">
-                <button
-                  className="text-blue-500 hover:text-blue-700"
-                  onClick={() => {
-                    void handleEdit(skill);
-                  }}
-                  aria-label={translations.editSkillLabel}
-                  title={translations.editSkillLabel}
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  className="text-red-500 hover:text-red-700"
-                  onClick={() => {
-                    void handleRemove(skill._id);
-                  }}
-                  aria-label={translations.removeSkillLabel}
-                  title={translations.removeSkillLabel}
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              {!isReadOnly && (
+                <div className="flex gap-1">
+                  <button
+                    className="text-blue-500 hover:text-blue-700"
+                    onClick={() => {
+                      void handleEdit(skill);
+                    }}
+                    aria-label={translations.editSkillLabel}
+                    title={translations.editSkillLabel}
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => {
+                      void handleRemove(skill._id);
+                    }}
+                    aria-label={translations.removeSkillLabel}
+                    title={translations.removeSkillLabel}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

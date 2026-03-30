@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Id } from "./_generated/dataModel";
 
 // Helper function to get today's date in YYYY-MM-DD format
 function getTodayDate(): string {
@@ -25,7 +26,13 @@ export const getWeeks = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) return { weeks: [], currentWeek: null, needsUpdate: false };
+    if (!userId)
+      return {
+        weeks: [],
+        currentWeek: null,
+        needsUpdate: false,
+        weekExpired: false,
+      };
 
     // Get user state
     const userState = await ctx.db
@@ -40,8 +47,17 @@ export const getWeeks = query({
       .order("desc")
       .collect();
 
-    // Get current week
+    // Get current week (active week)
     const currentWeek = weeks.find((w) => w.status === "active");
+
+    // Check if week has expired (only check, don't modify in query)
+    let weekExpired = false;
+    if (currentWeek) {
+      const today = getTodayDate();
+      if (today > currentWeek.endDate) {
+        weekExpired = true;
+      }
+    }
 
     // Check if needs update
     const needsUpdate = userState && userState.lastUpdateDate < getTodayDate();
@@ -119,10 +135,27 @@ export const getWeeks = query({
       };
     }
 
+    // Add "start" week placeholder when there's no active week
+    const weeksWithStartPlaceholder = currentWeek
+      ? weeksWithDays
+      : [
+          {
+            _id: "start-week-placeholder" as Id<"weeks">,
+            userId: userId as Id<"users">,
+            startDate: "",
+            endDate: "",
+            status: "start" as "active" | "completed",
+            createdAt: Date.now(),
+            days: [],
+          },
+          ...weeksWithDays,
+        ];
+
     return {
-      weeks: weeksWithDays,
+      weeks: weeksWithStartPlaceholder,
       currentWeek: currentWeekWithDays,
       needsUpdate: needsUpdate || false,
+      weekExpired: weekExpired,
     };
   },
 });
@@ -564,6 +597,64 @@ export const toggleSkill = mutation({
     });
 
     return { success: true };
+  },
+});
+
+// Complete expired week (mark as completed and mark empty days as missed)
+export const completeExpiredWeek = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    // Get user state
+    const userState = await ctx.db
+      .query("userState")
+      .filter((q) => q.eq(q.field("userId"), userId))
+      .unique();
+
+    if (!userState || !userState.currentWeekId) {
+      return { completed: false }; // No active week to complete
+    }
+
+    // Get current week
+    const currentWeek = await ctx.db.get("weeks", userState.currentWeekId);
+    if (!currentWeek || currentWeek.status !== "active") {
+      return { completed: false }; // No active week
+    }
+
+    // Check if week has expired (today is after end date)
+    const today = getTodayDate();
+    if (today <= currentWeek.endDate) {
+      return { completed: false }; // Week hasn't expired yet
+    }
+
+    // Get all days in week
+    const days = await ctx.db
+      .query("days")
+      .filter((q) => q.eq(q.field("weekId"), currentWeek._id))
+      .collect();
+
+    // Update all empty/today days to missed
+    for (const day of days) {
+      if (day.status === "empty" || day.status === "today") {
+        await ctx.db.patch("days", day._id, {
+          status: "missed",
+        });
+      }
+    }
+
+    // Mark week as completed
+    await ctx.db.patch("weeks", currentWeek._id, {
+      status: "completed",
+    });
+
+    // Clear currentWeekId in userState
+    await ctx.db.patch("userState", userState._id, {
+      currentWeekId: undefined,
+    });
+
+    return { completed: true };
   },
 });
 
