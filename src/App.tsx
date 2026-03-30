@@ -12,6 +12,17 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, X, LogOut } from "lucide-react";
 
+// Helper function to format date in local timezone (YYYY-MM-DD)
+function formatDateLocal(date: Date): string {
+  return (
+    date.getFullYear() +
+    "-" +
+    String(date.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(date.getDate()).padStart(2, "0")
+  );
+}
+
 // Russian translations
 const translations = {
   welcome: "Добро пожаловать",
@@ -302,16 +313,19 @@ function Content() {
     setLoading(true);
     setError(null);
     try {
-      // Calculate week dates
+      // Calculate week dates (Monday to Sunday)
       const today = new Date();
-      const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Monday
-      const monday = new Date(today.setDate(diff));
+      const day = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+      // Calculate days since Monday: Sunday=6, Monday=0, Tuesday=1, ..., Saturday=5
+      const daysSinceMonday = day === 0 ? 6 : day - 1;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - daysSinceMonday);
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
 
-      const startDate = monday.toISOString().split("T")[0];
-      const endDate = sunday.toISOString().split("T")[0];
+      const startDate = formatDateLocal(monday);
+      const endDate = formatDateLocal(sunday);
 
       await createWeekMutation({ startDate, endDate });
       await distributeSkillsMutation();
@@ -446,14 +460,16 @@ function Content() {
 // Helper function to create an empty week object
 function createEmptyWeek() {
   const today = new Date();
-  const day = today.getDay();
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Monday
-  const monday = new Date(today.setDate(diff));
+  const day = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  // Calculate days since Monday: Sunday=6, Monday=0, Tuesday=1, ..., Saturday=5
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - daysSinceMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 
-  const startDate = monday.toISOString().split("T")[0];
-  const endDate = sunday.toISOString().split("T")[0];
+  const startDate = formatDateLocal(monday);
+  const endDate = formatDateLocal(sunday);
 
   return {
     _id: "empty",
@@ -461,10 +477,10 @@ function createEmptyWeek() {
     endDate,
     status: "empty", // Используем существующий статус
     days: Array.from({ length: 7 }, (_, index) => ({
-      date: new Date(monday.getTime() + index * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0],
-      status: index === day - 1 ? "today" : "empty",
+      date: formatDateLocal(
+        new Date(monday.getTime() + index * 24 * 60 * 60 * 1000),
+      ),
+      status: index === daysSinceMonday ? "today" : "empty",
       taskCount: 0,
       completedCount: 0,
     })),

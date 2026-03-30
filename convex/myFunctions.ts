@@ -262,16 +262,30 @@ export const createWeek = mutation({
     // Create 7 days
     const days = [];
     const start = new Date(args.startDate);
+    const today = getTodayDate();
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(start);
       date.setDate(start.getDate() + i);
       const dateString = date.toISOString().split("T")[0];
 
+      // Determine status based on date:
+      // - Past days (before today): "missed"
+      // - Today: "today"
+      // - Future days: "empty"
+      let status: "empty" | "today" | "missed";
+      if (dateString < today) {
+        status = "missed";
+      } else if (dateString === today) {
+        status = "today";
+      } else {
+        status = "empty";
+      }
+
       const dayId = await ctx.db.insert("days", {
         weekId,
         date: dateString,
-        status: dateString === getTodayDate() ? "today" : "empty",
+        status,
         createdAt: Date.now(),
       });
 
